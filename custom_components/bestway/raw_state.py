@@ -26,7 +26,9 @@ from .translation import status_from_attrs
 # changes when a device is added, removed or renamed in the Bestway app.
 # Re-discovering it at most this often picks such a change up without hitting
 # the device-list endpoints every poll.
-DEVICE_REDISCOVERY_INTERVAL_S = 900
+# TEST ONLY - local verification branch: shortened from 900 s so a rename in
+# the Bestway app can be observed within a minute. Do not ship this value.
+DEVICE_REDISCOVERY_INTERVAL_S = 60
 
 
 class RawStateApi:
