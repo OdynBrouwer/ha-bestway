@@ -384,8 +384,10 @@ async def test_websocket_disconnect_callback():
         disconnect_callback=disconnect_callback,
     )
 
-    # Test _handle_disconnect directly, stop reconnection
-    with patch.object(ws, "_schedule_reconnect", new=AsyncMock()):
+    # Test _handle_disconnect directly; connecting is mocked out so the
+    # reconnect task it schedules can't actually reach the network.
+    ws._should_run = True
+    with patch.object(ws, "connect", new=AsyncMock()) as mock_connect:
         await ws._handle_disconnect()
 
         # Verify disconnect callback invoked
@@ -394,8 +396,11 @@ async def test_websocket_disconnect_callback():
         # Verify state cleaned up
         assert not ws._running
         assert not ws._authenticated
-        # Should have called _schedule_reconnect
-        ws._schedule_reconnect.assert_called_once()
+
+        assert ws._reconnect_task is not None
+        await ws._reconnect_task
+
+    mock_connect.assert_awaited_once()
 
 
 @pytest.mark.asyncio
@@ -453,7 +458,7 @@ async def test_listen_loop_processes_messages():
     # Mock WebSocket with messages
     mock_ws = MagicMock()
     ws._websocket = mock_ws
-    ws._running = False  # Set to False to prevent _handle_disconnect in finally
+    ws._running = False  # not running, so the finally stays quiet
 
     # Create async iterator that yields messages then stops
     messages = [
@@ -494,9 +499,11 @@ async def test_schedule_reconnect_exponential_backoff():
     )
 
     # Mock sleep and connect to prevent actual delays/connections
+    ws._should_run = True
+    ws._running = True  # a successful attempt ends the retry loop
     with (
         patch("asyncio.sleep", new=AsyncMock()) as mock_sleep,
-        patch.object(ws, "connect", new=AsyncMock()),
+        patch.object(ws, "_connect_once", new=AsyncMock()),
     ):
         # Test first reconnection (3 seconds)
         ws._reconnect_count = 0
@@ -531,7 +538,7 @@ async def test_listen_loop_handles_json_decode_error():
 
     mock_ws = MagicMock()
     ws._websocket = mock_ws
-    ws._running = False  # Prevent _handle_disconnect in finally
+    ws._running = False  # not running, so the finally stays quiet
 
     # Send malformed JSON
     async def mock_async_iter():
