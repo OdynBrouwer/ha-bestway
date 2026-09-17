@@ -15,12 +15,19 @@ from custom_components.bestway.bestway.model import BestwayUserToken
 from custom_components.bestway.const import (
     CONF_API_ROOT,
     CONF_API_ROOT_EU,
+    CONF_BACKEND,
     CONF_PASSWORD,
+    CONF_REGION,
+    CONF_SMARTSPA_ACCOUNT,
+    CONF_SMARTSPA_PASSWORD,
+    CONF_SMARTSPA_REGION,
     CONF_UID,
     CONF_USER_TOKEN,
     CONF_USER_TOKEN_EXPIRY,
     CONF_USERNAME,
+    CONF_VISITOR_ID,
     DOMAIN,
+    Backend,
 )
 from custom_components.bestway.model import BestwayDevice
 
@@ -283,3 +290,57 @@ async def test_websocket_uses_background_task(hass: HomeAssistant):
         await hass.async_block_till_done()
 
     assert len(captured_coros) == 1
+
+
+async def test_setup_retries_when_aws_iot_login_times_out(hass: HomeAssistant):
+    """A stalled AWS IoT login is transient, so setup must ask for a retry.
+
+    Anything other than ConfigEntryNotReady parks the entry in SETUP_ERROR,
+    which Home Assistant never retries, leaving every entity unavailable until
+    the entry is reloaded by hand.
+    """
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_BACKEND: Backend.AWS_IOT,
+            CONF_VISITOR_ID: "test-visitor",
+            CONF_REGION: "EU",
+        },
+        version=2,
+        entry_id="test",
+    )
+    config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.bestway.aws_iot.api.AwsIotApi.authenticate",
+        side_effect=TimeoutError,
+    ):
+        assert await hass.config_entries.async_setup(config_entry.entry_id) is False
+
+    assert config_entry.state is ConfigEntryState.SETUP_RETRY
+    assert "TimeoutError" in (config_entry.reason or "")
+
+
+async def test_setup_retries_when_smartspa_login_times_out(hass: HomeAssistant):
+    """A stalled SmartSpa login is transient, so setup must ask for a retry."""
+    config_entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_BACKEND: Backend.SMARTSPA,
+            CONF_SMARTSPA_ACCOUNT: "test@example.org",
+            CONF_SMARTSPA_PASSWORD: "P@asw0rd",
+            CONF_SMARTSPA_REGION: "EU",
+        },
+        version=2,
+        entry_id="test",
+    )
+    config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.bestway.smartspa.api.SmartSpaApi.authenticate",
+        side_effect=TimeoutError,
+    ):
+        assert await hass.config_entries.async_setup(config_entry.entry_id) is False
+
+    assert config_entry.state is ConfigEntryState.SETUP_RETRY
+    assert "TimeoutError" in (config_entry.reason or "")
