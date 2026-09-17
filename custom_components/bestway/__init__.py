@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from logging import getLogger
 
-from aiohttp import ClientSession
+from aiohttp import ClientError, ClientSession
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -62,6 +62,15 @@ _PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.SWITCH,
 ]
+
+
+def _describe_failure(ex: BaseException) -> str:
+    """Text for a failure that will reach the log or the config entry.
+
+    `asyncio.timeout` raises a bare TimeoutError, whose str() is empty - the
+    type is then the only thing worth reporting.
+    """
+    return str(ex) or type(ex).__name__
 
 
 def _async_remove_orphaned_bubbles_entities(
@@ -261,6 +270,14 @@ async def _async_setup_aws_iot(
     except AwsIotAuthException as ex:
         _LOGGER.error("AWS IoT authentication failed: %s", ex)
         raise ConfigEntryAuthFailed from ex
+    except (TimeoutError, ClientError) as ex:
+        # A cloud that is slow or unreachable is a reason to come back later.
+        # Home Assistant retries ConfigEntryNotReady with backoff, whereas any
+        # other exception parks the entry in SETUP_ERROR with every entity
+        # unavailable until someone reloads it by hand.
+        reason = _describe_failure(ex)
+        _LOGGER.warning("AWS IoT authentication did not complete: %s", reason)
+        raise ConfigEntryNotReady(reason) from ex
 
     # Initialize coordinator
     coordinator = BestwayUpdateCoordinator(hass, entry, api)
@@ -358,8 +375,10 @@ async def _async_setup_smartspa(
         except SmartSpaAuthException as ex:
             _LOGGER.error("SmartSpa authentication failed: %s", ex)
             raise ConfigEntryAuthFailed from ex
-        except SmartSpaException as ex:
-            raise ConfigEntryNotReady from ex
+        except (SmartSpaException, TimeoutError, ClientError) as ex:
+            reason = _describe_failure(ex)
+            _LOGGER.warning("SmartSpa authentication did not complete: %s", reason)
+            raise ConfigEntryNotReady(reason) from ex
         hass.config_entries.async_update_entry(
             entry, data={**entry.data, CONF_SMARTSPA_TOKEN: token}
         )
