@@ -56,16 +56,21 @@ This custom component integrates with the Bestway cloud API, providing control o
 > Since the Bestway Connect app update of ~July 2026, "Share device" no longer
 > produces a code the QR/visitor backend can redeem, so for those devices the
 > **account login** backend is the practical route: the email and password of your
-> Bestway Connect account.
+> Bestway Connect account. There is a second reason to move over: users report that
+> a spa added by visitor ID stops executing commands once the app has been logged
+> into with a real account, even though the integration still looks connected and
+> the commands appear in the spa's activity history.
 >
 > If you have only ever used the app as a guest, log out in the profile area, log
 > back in choosing **email** instead of **guest**, type any password to trigger the
 > **sign-up** option, and re-pair the device afterwards (scan the pump's barcode
 > again) - a device paired to a guest identity does not carry over.
 >
-> One app-side check worth doing: some units arrive with a running/countdown timer
-> enabled in the app, which switches the spa off on its own. If your spa stops
-> without a command from Home Assistant, turn that timer off in the app first.
+> One app-side setting is worth checking: the app can carry an access **expiry
+> date** (a date picker, usually left over from a share or guest invite). Once that
+> date has passed, the app asks you to log in again before it will control the spa.
+> Clearing the date stops that happening - worth trying before assuming the
+> integration is at fault.
 
 ## Device Support
 
