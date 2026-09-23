@@ -13,6 +13,60 @@ This custom component integrates with the Bestway cloud API, providing control o
   <img src="images/demo-diagnostic.png" width="200" />
 </p>
 
+> ## This is a fork
+>
+> This fork of [cdpuk/ha-bestway](https://github.com/cdpuk/ha-bestway) carries fixes
+> that are proposed upstream but not merged yet, so it is ahead of the released
+> version. It is the same integration - same domain, same `custom_components/bestway`
+> folder - so it **replaces** the upstream install rather than sitting beside it.
+> The changes are unreviewed; if something misbehaves, an issue here or upstream is
+> equally welcome.
+>
+> ### Install (HACS)
+>
+> 1. Remove the custom repository for `cdpuk/ha-bestway` if you added one, and
+>    remove the integration if it is installed (HACS -> three-dot menu ->
+>    Custom repositories).
+> 2. HACS -> three-dot menu -> Custom repositories -> add
+>    `https://github.com/OdynBrouwer/ha-bestway`, category _Integration_.
+> 3. Install **Bestway** and restart Home Assistant.
+>
+> ### What is in here beyond upstream `main`
+>
+> | Change                                                                                                                     | Proposed upstream as                                           |
+> | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+> | Setup asks Home Assistant to retry when the cloud login cannot be reached, instead of staying broken until a manual reload | #124 (hugo-brito); this branch carries the minimal retry slice |
+> | AWS IoT WebSocket reconnects after a dropped connection or a failed heartbeat                                              | #172                                                           |
+> | TLS verification is kept on the AWS IoT HTTP calls                                                                         | #173                                                           |
+> | Control commands the cloud refuses now fail the service call instead of silently reverting                                 | #171                                                           |
+> | Every control requests a refresh, so the pool filter timer catches up immediately                                          | #174                                                           |
+> | Error and filter-change binary sensors are no longer filed under diagnostics                                               | #169                                                           |
+> | The device list is re-discovered periodically on every backend                                                             | #170                                                           |
+> | A MEDIUM chosen on an Airjet V02 panel reads as MEDIUM instead of OFF                                                      | #180                                                           |
+> | HydroJet V02 MEDIUM selection steps MAX, then MEDIUM, from OFF                                                             | #153                                                           |
+> | Bubbles select options are translated                                                                                      | #162 (Maaatze)                                                 |
+> | The SmartSpa shadow dialect is detected per device                                                                         | #167 (CodyJon)                                                 |
+>
+> Thanks to Maaatze, CodyJon, hugo-brito, pointstraight, heyiamluke, epheterson and
+> everyone else in the issue threads whose proxy captures, logs and measurements made
+> these fixes possible. This fork packages them; the work is theirs as much as mine.
+>
+> ### Which V2 backend to choose
+>
+> Since the Bestway Connect app update of ~July 2026, "Share device" no longer
+> produces a code the QR/visitor backend can redeem, so for those devices the
+> **account login** backend is the practical route: the email and password of your
+> Bestway Connect account.
+>
+> If you have only ever used the app as a guest, log out in the profile area, log
+> back in choosing **email** instead of **guest**, type any password to trigger the
+> **sign-up** option, and re-pair the device afterwards (scan the pump's barcode
+> again) - a device paired to a guest identity does not carry over.
+>
+> One app-side check worth doing: some units arrive with a running/countdown timer
+> enabled in the app, which switches the spa off on its own. If your spa stops
+> without a command from Home Assistant, turn that timer off in the app first.
+
 ## Device Support
 
 A Wi-Fi enabled model is required. No custom hardware is required.
