@@ -67,6 +67,18 @@ SMARTSPA_ENDPOINTS = {
 
 TIMEOUT = 20  # the gateway can be slow; 10s caused spurious failures upstream
 
+# SmartSpa Connect 2026 shadows sometimes use Gizwits V01 datapoint names
+# (Tnow/Tset/heat/power) rather than AWS IoT names. Reads are translated in
+# v01_attrs_from_shadow; writes have to send the same names the shadow uses.
+_V02_TO_V01_WRITE = {
+    "power_state": "power",
+    "heater_state": "heat",
+    "wave_state": "wave",
+    "filter_state": "filter",
+    "hydrojet_state": "jet",
+    "temperature_setting": "Tset",
+}
+
 
 class SmartSpaException(BestwayApiException):
     """Base exception for SmartSpa API operations."""
@@ -119,6 +131,12 @@ class SmartSpaApi(RawStateApi):
 
         # device_id -> (productKey, mac) for URL building
         self._routing: dict[str, tuple[str, str]] = {}
+        # device_id -> True when the last *gateway* shadow used V01 names
+        # (Tnow/Tset). Must be set from the raw shadow, not from
+        # v01_attrs_from_shadow() output — that mapper copies Tnow/Tset
+        # onto V02 devices too, which would remap every write after the
+        # first poll.
+        self._v01_shadow: dict[str, bool] = {}
 
     # ------------------------------------------------------------------ auth
 
@@ -370,6 +388,10 @@ class SmartSpaApi(RawStateApi):
 
                 _LOGGER.debug("SmartSpa shadow for %s: %s", device_id, shadow)
 
+                # Dialect is the names the gateway actually sent, before
+                # v01_attrs_from_shadow() aliases V02 keys to Tnow/Tset.
+                self._v01_shadow[device_id] = "Tnow" in shadow or "Tset" in shadow
+
                 # Same shadow vocabulary as the AWS IoT backend serves.
                 mapped = v01_attrs_from_shadow(shadow)
 
@@ -407,7 +429,7 @@ class SmartSpaApi(RawStateApi):
                 )
                 # Deliberately no placeholder entry here: a RawSnapshot with
                 # empty attrs would translate to a truthy DeviceStatus, which
-                # passes `if not device.status` guards and then raises
+                # passes `if not device.status` guards, and then raises
                 # KeyError downstream. Leaving the cache untouched keeps the
                 # last known state, or no state at all.
 
@@ -451,9 +473,21 @@ class SmartSpaApi(RawStateApi):
             "power_state",
             "hydrojet_state",
             "locked",
+            "power",
+            "wave",
+            "jet",
         ):
             return 1 if numeric else 0
+        # Gizwits V01 wire values (HydrojetFilter.ON=2, HydrojetHeat.ON=3)
+        if key == "filter":
+            return 2 if numeric else 0
+        if key == "heat":
+            return 3 if numeric else 0
         return numeric
+
+    def _uses_v01_shadow(self, device_id: str) -> bool:
+        """True when the last gateway shadow used V01 field names."""
+        return self._v01_shadow.get(device_id, False)
 
     async def set_device_state(
         self, device_id: str, state_updates: dict[str, Any]
@@ -464,6 +498,11 @@ class SmartSpaApi(RawStateApi):
             return False
 
         product_key, mac = self._routing[device_id]
+        if self._uses_v01_shadow(device_id):
+            state_updates = {
+                _V02_TO_V01_WRITE.get(key, key): value
+                for key, value in state_updates.items()
+            }
         datapoints = {
             key: self._to_write_value(key, value)
             for key, value in state_updates.items()
