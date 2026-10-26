@@ -31,10 +31,14 @@ This custom component integrates with the Bestway cloud API, providing control o
 >    `https://github.com/OdynBrouwer/ha-bestway`, category _Integration_.
 > 3. Install **Bestway** and restart Home Assistant.
 >
+> No release is published on purpose: HACS installs the default branch, so what you
+> get is always this branch. The trade-off is that HACS has no new version to offer
+> you - use **Redownload** after I push a change.
+>
 > ### What is in here beyond upstream `main`
 >
 > | Change                                                                                                                     | Proposed upstream as                                           |
-> | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+> | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- | --- | ------------------------------------------------------------------------------------------------ | ----------------------- | --- |
 > | Setup asks Home Assistant to retry when the cloud login cannot be reached, instead of staying broken until a manual reload | #124 (hugo-brito); this branch carries the minimal retry slice |
 > | AWS IoT WebSocket reconnects after a dropped connection or a failed heartbeat                                              | #172                                                           |
 > | TLS verification is kept on the AWS IoT HTTP calls                                                                         | #173                                                           |
@@ -45,7 +49,7 @@ This custom component integrates with the Bestway cloud API, providing control o
 > | A MEDIUM chosen on an Airjet V02 panel reads as MEDIUM instead of OFF                                                      | #180                                                           |
 > | HydroJet V02 MEDIUM selection steps MAX, then MEDIUM, from OFF                                                             | #153                                                           |
 > | Bubbles select options are translated                                                                                      | #162 (Maaatze)                                                 |
-> | The SmartSpa shadow dialect is detected per device                                                                         | #167 (CodyJon)                                                 |
+> | The SmartSpa shadow dialect is detected per device                                                                         | #167 (CodyJon)                                                 | >   | A spa that reports itself offline via SmartSpa shows unavailable instead of its last known state | not proposed yet (#185) | >   |
 >
 > Thanks to Maaatze, CodyJon, hugo-brito, pointstraight, heyiamluke, epheterson and
 > everyone else in the issue threads whose proxy captures, logs and measurements made
