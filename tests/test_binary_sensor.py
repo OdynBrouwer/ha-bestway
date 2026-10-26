@@ -82,6 +82,28 @@ def test_error_sensors_are_not_diagnostic() -> None:
         assert sensor.entity_category is None
 
 
+def test_connectivity_sensor_prefers_the_device_heartbeat() -> None:
+    """A powered-down spa must report offline even though the list says online."""
+    coordinator = _make_coordinator()
+    coordinator.api.reports_device_heartbeat = True
+    coordinator.data = BestwayApiResults(
+        devices={"test_device": DeviceStatus(timestamp=1000, is_online=False)}
+    )
+    sensor = DeviceConnectivitySensor(
+        coordinator, MagicMock(), "test_device", _SPA_CONNECTIVITY_SENSOR_DESCRIPTION
+    )
+    assert sensor.is_on is False
+
+
+def test_connectivity_sensor_falls_back_to_the_device_list() -> None:
+    """Without a heartbeat in the state, the device record is all there is."""
+    coordinator = _make_coordinator()
+    sensor = DeviceConnectivitySensor(
+        coordinator, MagicMock(), "test_device", _SPA_CONNECTIVITY_SENSOR_DESCRIPTION
+    )
+    assert sensor.is_on is True
+
+
 def test_pool_filter_change_sensor_is_not_diagnostic() -> None:
     """A change-required alert must not hide in the diagnostics section."""
     coordinator = _make_coordinator()
